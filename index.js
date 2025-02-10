@@ -22,7 +22,7 @@ let otherKeepFiles = ["user_filelist.txt"];
 let transcriptionArchives = [];
 let gptResponseArchives = [];
 
-const userAudioFilesCombineNum = 1;
+const userAudioFilesCombineNum = 4; //variable to determine how many times user speak before voice cloning
 let VOICE_ID = "Xb7hH8MSUJpSbSDYk0k2";
 let voiceIDList = [];
 let voiceIDDeleteList = [];
@@ -44,64 +44,6 @@ const handleRecording = async () => {
   transcriptionArchives.push(transcription);
 
   return transcription;
-};
-
-const handleAIProcessing = async (transcription) => {
-  //for voice interaction
-  const responseText = await getOpenAIResponse(transcription);
-  console.log("--RESPONSE:", responseText);
-  gptResponseArchives.push(responseText);
-
-  console.log("Converting response to speech...");
-  setCurrentStatus("Converting response to speech...");
-  currentStatus = "Converting response to speech...";
-  const responseAudioFile = await convertTextToSpeech(responseText, VOICE_ID);
-  gptAudioFiles.push(responseAudioFile);
-
-  let combinePromise = Promise.resolve();
-
-  if (userAudioFiles.length >= userAudioFilesCombineNum) {
-    console.log("Combining user audio files...");
-    combinePromise = combineAudioFiles(folderPath, userAudioFiles)
-      .then(async (combinedFilePath) => {
-        console.log("User audio combined successfully:", combinedFilePath);
-
-        setCurrentStatus("Start voice cloning process...");
-        currentStatus = "Start voice cloning process...";
-        const cloneVoicePromise = cloneUserVoice(
-          combinedFilePath,
-          userCloneNum
-        ).then(async (newVoiceID) => {
-          await deleteOldVoice(VOICE_ID, voiceIDDeleteList);
-
-          userCloneNum += 1;
-          VOICE_ID = newVoiceID;
-          voiceIDList.push(newVoiceID);
-        });
-
-        const playAudioPromise = playAudio(folderPath, responseAudioFile);
-
-        await Promise.all([cloneVoicePromise, playAudioPromise]);
-
-        console.log("--Cloning and playback completed.");
-        setCurrentStatus("Cloning and playback completed...");
-        currentStatus = "Cloning and playback completed...";
-      })
-      .catch((err) => console.error("Error combining audio files:", err));
-  } else {
-    setCurrentStatus(
-      "Interact with system one more time to start voice cloning..."
-    );
-    currentStatus =
-      "Interact with system one more time to start voice cloning...";
-    console.log(
-      `Not enough audio files to combine. At least ${userAudioFilesCombineNum} required.`
-    );
-
-    await playAudio(folderPath, responseAudioFile);
-  }
-
-  await combinePromise;
 };
 
 const handleVoiceCloning = async (transcription) => {
