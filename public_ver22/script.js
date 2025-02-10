@@ -97,8 +97,8 @@ const promptCorrect = (setup, solution, clue, allGuess) =>
   3. Explain how, based on those past guesses, they came up with the correct answer. 
 `;
 
-const evaEnding =
-  "\nYou can leave now.. I will be waiting for your next visit... :)\n(to restart, refresh the page.)";
+const endMessage =
+  "\nYou have finished all the puzzle! \n(to restart, refresh the page.)";
 
 let currentPuzzleIndex = 0;
 
@@ -108,7 +108,7 @@ const loadPuzzle = function () {
   if (currentPuzzleIndex >= puzzles.length) {
     this.echo("");
     this.echo("You've completed all the puzzles. Good job.");
-    this.echo(evaEnding);
+    this.echo(endMessage);
     return; // End the session or handle it as needed
   }
 
@@ -128,7 +128,7 @@ const loadPuzzle = function () {
             this.pop(); // Remove this prompt from the stack
             loadPuzzle.call(this); // Call loadPuzzle in the context of the terminal
           } else if (command.match(/no|n/i)) {
-            this.echo(evaEnding);
+            this.echo(endMessage);
             this.pop();
           } else {
             this.echo("Please enter yes or no.(y/n)");
@@ -143,9 +143,7 @@ const loadPuzzle = function () {
 
 function startingConversation(term) {
   setTimeout(function () {
-    term.echo(
-      `\nHere, I will be playing my favorite game —lateral thinking puzzles— with you.`
-    );
+    term.echo(`\nHere, I will be playing lateral thinking puzzles with you.`);
   }, 1500);
 
   setTimeout(function () {
@@ -192,6 +190,18 @@ inputButton.addEventListener("click", async () => {
   }
 });
 
+const audoTranscriptionUpdate = async () => {
+  const transcription = await fetchLatestTranscription();
+  if (transcription) {
+    updateTranscriptionText(transcription);
+    if (window.term) {
+      window.term.set_prompt(`> ${transcriptionText}`);
+    }
+  }
+};
+
+setInterval(audoTranscriptionUpdate, 500); // repeating to call updating the transcript
+
 // ---------- TERMINAL ---------- //
 // ---------- TERMINAL ---------- //
 // ---------- TERMINAL ---------- //
@@ -207,8 +217,9 @@ document.fonts.ready.then(() => {
       },
     },
     {
-      greetings: `Welcome visitor,
-This is Eva's Terminal, The brain(back-end) of Eva`,
+      greetings: `Welcome!,
+This is a terminal where you can play a lateral thinking puzzle with an AI.
+`,
     }
   );
 
@@ -263,7 +274,7 @@ async function playPuzzle(puzzle) {
       puzzle.keyword
     );
 
-    terminal.echo(`\nEva
+    terminal.echo(`\nAI Response
   ${aiResponse}
     `);
 
@@ -277,7 +288,7 @@ async function playPuzzle(puzzle) {
         allUserGuesses
       );
 
-      terminal.echo(`\nEva
+      terminal.echo(`\nAI Response
     ${aiResponse}
       `);
 

@@ -1,29 +1,13 @@
 //node.js
-//ver16 nov19
-//final tech prototype
+//ver22 feb 9
 
-import {
-  startRecordingProcess,
-  stopRecordingProcess,
-  getAudioChunks,
-} from "./shared/mic.js";
-import {
-  saveAudio,
-  combineAudioFiles,
-  cleanupAudioFolder,
-  playAudio,
-} from "./shared/audio.js";
-import {
-  convertTextToSpeech,
-  cloneUserVoice,
-  deleteOldVoice,
-} from "./shared/elevenlab.js";
-import {
-  setVoiceId,
-  getVoiceId,
-  setCurrentStatus,
-  getCurrentStatus,
-} from "./shared/gloVariable.js";
+import * as mic from "./shared/mic.js";
+import * as audio from "./shared/audio.js";
+import * as elevenlab from "./shared/elevenlab.js";
+import * as globalVar from "./shared/gloVariable.js";
+
+Object.assign(globalThis, mic, audio, elevenlab, globalVar);
+
 import { transcribeAudio, getOpenAIResponse } from "./shared/openai.js";
 import { startServer } from "./shared/server.js";
 import dotenv from "dotenv";

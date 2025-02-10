@@ -5,6 +5,19 @@
 const recordingIndicator = document.getElementById("recordingIndicator");
 const inputButton = document.getElementById("inputButton");
 const nodeStatusIndicator = document.getElementById("nodeStatusIndicator");
+const phone = document.getElementById("phoneAudio");
+
+function playPhoneSound() {
+  phone.loop = true;
+  phone.play();
+  console.log("playing sound");
+}
+
+function stopPhoneSound() {
+  phone.pause();
+  phone.currentTime = 0;
+  console.log("stop playing sound");
+}
 
 let isKeyPressed = false;
 
@@ -23,6 +36,7 @@ window.addEventListener("keydown", (e) => {
     isKeyPressed = true;
     fetch("/start-recording", { method: "POST" });
     isRecording();
+    stopPhoneSound();
   }
 });
 
@@ -38,12 +52,13 @@ window.addEventListener("keyup", (e) => {
       })
       .catch((error) => console.error("Error stopping recording:", error));
     notRecording();
+    playPhoneSound();
   }
 });
 
-document.getElementById("inputButton").addEventListener("click", () => {
-  fetchLatestTranscription();
-});
+// document.getElementById("inputButton").addEventListener("click", () => {
+//   fetchLatestTranscription();
+// });
 
 const updateNodeStatus = () => {
   fetch("/status")
@@ -61,8 +76,6 @@ const updateNodeStatus = () => {
       nodeStatusIndicator.textContent = "error";
     });
 };
-
-setInterval(updateNodeStatus, 500);
 
 const fetchLatestTranscription = () => {
   return fetch("/latest-transcription", {
@@ -84,11 +97,4 @@ const fetchLatestTranscription = () => {
     });
 };
 
-inputButton.addEventListener("click", async () => {
-  const transcription = await fetchLatestTranscription();
-  if (transcription) {
-    updateTranscriptionText(transcription);
-  } else {
-    console.error("No transcription data available.");
-  }
-});
+setInterval(updateNodeStatus, 500);
