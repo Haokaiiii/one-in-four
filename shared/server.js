@@ -19,6 +19,7 @@ Object.assign(globalThis, index);
 import { convertTextToSpeech } from "./elevenlab.js";
 import { playAudio } from "./audio.js";
 import path from "path";
+import { startRecordingProcess, stopRecordingProcess, getTranscription } from "./mic.js";
 
 const audioFolderPath = "./audio";
 
@@ -38,20 +39,14 @@ app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../public_ver22/index.html"));
 });
 
-export const startServer = (
-  startRecording,
-  stopRecording,
-  getCurrentStatus,
-  getTranscriptionArchives
-) => {
-  app.post("/start-recording", (req, res) => {
-    startRecording();
-    res.sendStatus(200);
-  });
+export const startServer = () => {
+  app.use(cors());
+  app.use(express.json());
+  app.use(express.static(join(__dirname, "../public_ver22")));
+  app.use('/assets', express.static(join(__dirname, '../public_ver22/assets')));
 
-  app.post("/stop-recording", (req, res) => {
-    stopRecording();
-    res.sendStatus(200);
+  app.get("/", (req, res) => {
+    res.sendFile(join(__dirname, "../public_ver22/index.html"));
   });
 
   app.post("/submit", async (req, res) => {
@@ -93,27 +88,23 @@ export const startServer = (
     }
   });
 
-  app.get("/status", async (req, res) => {
+  app.get("/status", (req, res) => {
     try {
-      const status = await getCurrentStatus();
-      res.json({ status: status || "idle" });
+      const status = getCurrentStatus();
+      res.status(200).json({ status: status || "idle" });
     } catch (error) {
-      console.error("Error fetching status:", error);
-      res.status(500).json({ error: "Failed to fetch status" });
+      console.error('Error getting status:', error);
+      res.status(500).json({ error: 'Failed to get status' });
     }
   });
 
   app.get("/latest-transcription", (req, res) => {
-    transcriptionArchives = getTranscriptionArchives();
-
-    if (transcriptionArchives.length > 0) {
-      const latestTranscription =
-        transcriptionArchives[transcriptionArchives.length - 1];
-      if (typeof latestTranscription === "string") {
-        res.status(200).json({ transcription: latestTranscription });
-      }
-    } else {
-      res.status(404).json({ error: "No transcription data available." });
+    try {
+      const transcription = getTranscription();
+      res.status(200).json({ transcription: transcription || "" });
+    } catch (error) {
+      console.error('Error getting transcription:', error);
+      res.status(500).json({ error: 'Failed to get transcription' });
     }
   });
 

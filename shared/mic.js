@@ -1,40 +1,60 @@
 //mic.js -> for functions that use mic (recordings)
 //list of funtions:
-//startRecordingProcess, stopRecordingProcess, getAudioChunks
+//startRecordingProcess, stopRecordingProcess
 
-import mic from "mic";
-import { Writable } from "stream";
-
-let micInstance;
-let micInputStream;
+let recognition = null;
 let isRecording = false;
-let audioChunks = [];
+let currentTranscription = '';
 
 export const startRecordingProcess = () => {
   console.log("Starting recording process...");
-  micInstance?.stop();
-  micInstance = mic({ rate: "16000", channels: "1", debug: false });
-  micInputStream = micInstance.getAudioStream();
-  audioChunks = [];
-  isRecording = true;
+  try {
+    if (!recognition) {
+      recognition = new webkitSpeechRecognition() || new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
 
-  micInputStream.pipe(
-    new Writable({
-      write(chunk, _, callback) {
-        if (!isRecording) return callback();
-        audioChunks.push(chunk);
-        callback();
-      },
-    })
-  );
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log("Transcription result:", transcript);
+        currentTranscription = transcript;
+      };
 
-  micInstance.start();
+      recognition.onerror = (event) => {
+        console.error("Speech recognition error:", event.error);
+        isRecording = false;
+      };
+
+      recognition.onend = () => {
+        console.log("Speech recognition ended");
+        isRecording = false;
+      };
+    }
+
+    recognition.start();
+    isRecording = true;
+    console.log("Recording started successfully");
+  } catch (error) {
+    console.error("Error starting recording:", error);
+    isRecording = false;
+    throw error;
+  }
 };
 
 export const stopRecordingProcess = () => {
   console.log("Stopping recording...");
-  isRecording = false;
-  micInstance?.stop();
+  try {
+    if (recognition && isRecording) {
+      recognition.stop();
+      isRecording = false;
+    }
+    console.log("Recording stopped successfully");
+    return currentTranscription;
+  } catch (error) {
+    console.error("Error stopping recording:", error);
+    throw error;
+  }
 };
 
-export const getAudioChunks = () => audioChunks;
+export const getTranscription = () => currentTranscription;

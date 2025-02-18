@@ -2,6 +2,9 @@
 // HTML Communication
 // post request + direct link to html functions
 
+import { initSpeechRecognition, startRecording, stopRecording } from './mic.js';
+import { fetchLatestTranscription, updateTranscriptionText } from './script.js';
+
 const recordingIndicator = document.getElementById("recordingIndicator");
 const inputButton = document.getElementById("inputButton");
 const nodeStatusIndicator = document.getElementById("nodeStatusIndicator");
@@ -41,70 +44,66 @@ const notRecording = () => {
   recordingIndicator.style.color = "white";
 };
 
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Period" && !isKeyPressed) {
-    isKeyPressed = true;
-    fetch("/start-recording", { method: "POST" });
-    isRecording();
-    stopPhoneSound();
+const updateNodeStatus = async () => {
+  try {
+    const response = await fetch("/status");
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
+    }
+    const data = await response.json();
+    nodeStatusIndicator.textContent = data.status || "idle";
+  } catch (error) {
+    console.error("Error fetching node status:", error);
+    nodeStatusIndicator.textContent = "error";
+  }
+};
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initSpeechRecognition()) {
+    alert('Speech recognition is not supported in your browser. Please use Chrome.');
   }
 });
 
-window.addEventListener("keyup", (e) => {
+window.addEventListener("keydown", async (e) => {
+  if (e.code === "Period" && !isKeyPressed) {
+    try {
+      e.preventDefault();
+      isKeyPressed = true;
+      isRecording();
+      stopPhoneSound();
+      await startRecording();
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      notRecording();
+    }
+  }
+});
+
+window.addEventListener("keyup", async (e) => {
   if (e.code === "Period" && isKeyPressed) {
-    isKeyPressed = false;
-    fetch("/stop-recording", { method: "POST" })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.status === "transcription_complete") {
-          fetchLatestTranscription();
+    try {
+      e.preventDefault();
+      isKeyPressed = false;
+      const transcription = await stopRecording();
+      if (transcription) {
+        console.log("Received transcription:", transcription);
+        updateTranscriptionText(transcription);
+        if (window.term) {
+          window.term.set_prompt(`> ${transcription}`);
         }
-      })
-      .catch((error) => console.error("Error stopping recording:", error));
-    notRecording();
-    playPhoneSound();
+      }
+      notRecording();
+      playPhoneSound();
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+      notRecording();
+    }
   }
 });
 
 // document.getElementById("inputButton").addEventListener("click", () => {
 //   fetchLatestTranscription();
 // });
-
-const updateNodeStatus = () => {
-  fetch("/status")
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      nodeStatusIndicator.textContent = data.status || "idle";
-    })
-    .catch((error) => {
-      console.error("Error fetching node status:", error);
-      nodeStatusIndicator.textContent = "error";
-    });
-};
-
-const fetchLatestTranscription = () => {
-  return fetch("/latest-transcription", {
-    method: "GET",
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      console.log("Fetched transcription:", data.transcription);
-      return data.transcription;
-    })
-    .catch((error) => {
-      console.error("Error fetching transcription:", error);
-      return null;
-    });
-};
 
 setInterval(updateNodeStatus, 500);

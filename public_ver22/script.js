@@ -1,3 +1,19 @@
+// Add this near the top of the file, after imports
+export const fetchLatestTranscription = async () => {
+  try {
+    const response = await fetch("/latest-transcription");
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log("Fetched transcription:", data.transcription);
+    return data.transcription;
+  } catch (error) {
+    console.error("Error fetching transcription:", error);
+    return null;
+  }
+};
+
 const puzzles = [
   {
     setup:
@@ -173,8 +189,7 @@ function startingConversation(term) {
 
 let transcriptionText = "press . to input your voice";
 
-const updateTranscriptionText = (newTranscription) => {
-  // console.log("Updating transcription text:", newTranscription);
+export const updateTranscriptionText = (newTranscription) => {
   transcriptionText = newTranscription;
 };
 
@@ -200,7 +215,7 @@ const audoTranscriptionUpdate = async () => {
   }
 };
 
-setInterval(audoTranscriptionUpdate, 500); // repeating to call updating the transcript
+setInterval(audoTranscriptionUpdate, 500);
 
 // ---------- TERMINAL ---------- //
 // ---------- TERMINAL ---------- //
