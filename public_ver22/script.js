@@ -236,61 +236,69 @@ document.fonts.ready.then(() => {
 // ---------- AI ---------- //
 
 async function playPuzzle(puzzle) {
-  // this.echo("");
-  this.echo(puzzle.setup);
-  this.echo("");
-  this.echo(`Ask any question related to the scenario`);
-  this.echo("");
+  try {
+    // this.echo("");
+    this.echo(puzzle.setup);
+    this.echo("");
+    this.echo(`Ask any question related to the scenario`);
+    this.echo("");
 
-  const terminal = this;
+    const terminal = this;
 
-  // Main player QA loop
-  while (true) {
-    const userInput = await new Promise((resolve) => {
-      terminal.push(
-        function (input) {
-          if (input && input.trim()) {
-            resolve(input);
+    // Main player QA loop
+    while (true) {
+      const userInput = await new Promise((resolve) => {
+        terminal.push(
+          function (input) {
+            if (input && input.trim()) {
+              resolve(input);
+            }
+          },
+          {
+            prompt: '> '
           }
-        },
-        {
-          prompt: '> '
-        }
-      );
-    });
+        );
+      });
 
-    allUserGuesses.push(userInput);
-    const aiResponse = await requestAI(
-      userInput,
-      puzzle.setup,
-      puzzle.solution,
-      puzzle.clue,
-      puzzle.keyword
-    );
-
-    terminal.echo(`\nAI Response
-  ${aiResponse}
-    `);
-
-    // console.log(`--aiResponse.includes(correct): ${aiResponse.toLowerCase().includes("correct")}`) //correct detection
-
-    if (aiResponse.toLowerCase().includes("correct")) {
-      const aiResponse = await requestAIResult(
+      allUserGuesses.push(userInput);
+      const aiResponse = await requestAI(
+        userInput,
         puzzle.setup,
         puzzle.solution,
         puzzle.clue,
-        allUserGuesses
+        puzzle.keyword
       );
 
       terminal.echo(`\nAI Response
     ${aiResponse}
       `);
 
-      await postTextToSpeech(aiResponse);
+      // console.log(`--aiResponse.includes(correct): ${aiResponse.toLowerCase().includes("correct")}`) //correct detection
 
-      terminal.pop();
-      break;
+      if (aiResponse.toLowerCase().includes("correct")) {
+        const resultResponse = await requestAIResult(
+          puzzle.setup,
+          puzzle.solution,
+          puzzle.clue,
+          allUserGuesses
+        );
+
+        terminal.echo(`\nAI Response
+      ${resultResponse}
+        `);
+
+        try {
+          await postTextToSpeech(resultResponse);
+        } catch (error) {
+          console.warn("Voice feedback unavailable");
+        }
+        
+        break; // Exit the game loop
+      }
     }
+  } catch (error) {
+    console.error("Error in puzzle game:", error);
+    terminal.echo("\nAn error occurred. Please try again.");
   }
 }
 
@@ -354,11 +362,10 @@ const postTextToSpeech = async (text) => {
     });
 
     if (!voiceIdResponse.ok) {
-      throw new Error("Failed to retrieve the voice ID.");
+      throw new Error("Voice ID service unavailable");
     }
 
     const { voiceId } = await voiceIdResponse.json();
-
     const response = await fetch("/text-to-speech", {
       method: "POST",
       headers: {
@@ -367,16 +374,36 @@ const postTextToSpeech = async (text) => {
       body: JSON.stringify({ text, voiceId }),
     });
 
-    if (response.ok) {
-      const { audioFilePath } = await response.json();
-      console.log("Text-to-speech successful. Audio file path:", audioFilePath);
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
 
-      const audio = new Audio(audioFilePath);
-      audio.play();
-    } else {
-      console.error("Failed to convert text to speech.");
+    const data = await response.json();
+    if (data.audioFilePath) {
+      const audioFileName = data.audioFilePath.split(/[/\\]/).pop();
+      const audioPath = `/audio/${audioFileName}`;
+      console.log("Audio file created at:", data.audioFilePath);
+      console.log("Attempting to play from URL:", audioPath);
+      
+      const audio = new Audio();
+      
+      // Add event listener for debugging
+      audio.addEventListener('error', (e) => {
+        console.error('Audio loading error:', e.target.error);
+      });
+      
+      audio.src = audioPath;
+      
+      await new Promise((resolve, reject) => {
+        audio.oncanplaythrough = resolve;
+        audio.onerror = () => reject(new Error(`Failed to load audio from ${audioPath}`));
+        audio.load();
+      });
+
+      await audio.play();
     }
   } catch (error) {
-    console.error("Error in text-to-speech POST request:", error);
+    console.error("Text-to-speech error:", error);
+    console.warn("Text-to-speech service unavailable, continuing without voice");
   }
 };

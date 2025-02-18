@@ -6,6 +6,8 @@ import { ElevenLabsClient } from "elevenlabs";
 import fs from "fs";
 import dotenv from "dotenv";
 import fetch from "node-fetch";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
 dotenv.config();
 
@@ -13,17 +15,20 @@ const client = new ElevenLabsClient({
   apiKey: process.env.ELEVEN_LABS_API_KEY,
 });
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export const convertTextToSpeech = async (text, voiceID) => {
   console.log("Converting text to speech...");
   const fileName = `${Date.now()}.mp3`;
-  const filePath = `./audio/${fileName}`;
+  const filePath = join(__dirname, '../public_ver22/audio', fileName);
   const audioStream = await client.textToSpeech.convert(voiceID, { text });
   const writeStream = fs.createWriteStream(filePath);
 
   return new Promise((resolve, reject) => {
     audioStream.pipe(writeStream);
     writeStream.on("finish", () => {
-      console.log("convertTextToSpeech -- complete");
+      console.log("convertTextToSpeech -- complete, saved to:", filePath);
       resolve(fileName);
     });
     audioStream.on("error", reject);

@@ -21,12 +21,13 @@ import { playAudio } from "./audio.js";
 import path from "path";
 import { startRecordingProcess, stopRecordingProcess, getTranscription } from "./mic.js";
 
-const audioFolderPath = "./audio";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const audioFolderPath = join(__dirname, '../public_ver22/audio');
 
 const app = express();
 const port = process.env.PORT || 3001;
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 let transcriptionArchives = [];
 
@@ -34,6 +35,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(join(__dirname, "../public_ver22")));
 app.use('/assets', express.static(join(__dirname, '../public_ver22/assets')));
+app.use('/audio', express.static(join(__dirname, '../public_ver22/audio')));
 
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../public_ver22/index.html"));
@@ -44,6 +46,7 @@ export const startServer = () => {
   app.use(express.json());
   app.use(express.static(join(__dirname, "../public_ver22")));
   app.use('/assets', express.static(join(__dirname, '../public_ver22/assets')));
+  app.use('/audio', express.static(join(__dirname, '../public_ver22/audio')));
 
   app.get("/", (req, res) => {
     res.sendFile(join(__dirname, "../public_ver22/index.html"));
