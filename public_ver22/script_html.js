@@ -8,15 +8,25 @@ const nodeStatusIndicator = document.getElementById("nodeStatusIndicator");
 const phone = document.getElementById("phoneAudio");
 
 function playPhoneSound() {
-  phone.loop = true;
-  phone.play();
-  console.log("playing sound");
+  if (phone) {
+    phone.loop = true;
+    phone.play().catch(error => {
+      console.error("Error playing sound:", error);
+    });
+    console.log("playing sound");
+  } else {
+    console.error("Phone audio element not found");
+  }
 }
 
 function stopPhoneSound() {
-  phone.pause();
-  phone.currentTime = 0;
-  console.log("stop playing sound");
+  if (phone) {
+    phone.pause();
+    phone.currentTime = 0;
+    console.log("stop playing sound");
+  } else {
+    console.error("Phone audio element not found");
+  }
 }
 
 let isKeyPressed = false;

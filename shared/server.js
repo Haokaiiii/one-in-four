@@ -32,6 +32,7 @@ let transcriptionArchives = [];
 app.use(cors());
 app.use(express.json());
 app.use(express.static(join(__dirname, "../public_ver22")));
+app.use('/assets', express.static(join(__dirname, '../public_ver22/assets')));
 
 app.get("/", (req, res) => {
   res.sendFile(join(__dirname, "../public_ver22/index.html"));
