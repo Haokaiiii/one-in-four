@@ -10,8 +10,8 @@ export const initSpeechRecognition = () => {
   
   const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
   recognition = new SpeechRecognition();
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.lang = 'en-US';
   
   return true;
@@ -26,28 +26,33 @@ export const startRecording = () => {
       }
     }
 
+    currentTranscription = '';
+
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      console.log("Transcription result:", transcript);
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join(' ');
+      console.log("Interim transcription:", transcript);
       currentTranscription = transcript;
-      resolve(transcript);
+      
+      if (window.term) {
+        window.term.set_command(transcript);
+      }
     };
 
     recognition.onerror = (event) => {
       console.error("Speech recognition error:", event.error);
-      reject(event.error);
-    };
-
-    recognition.onend = () => {
-      console.log("Speech recognition ended");
       isRecording = false;
+      reject(event.error);
     };
 
     try {
       recognition.start();
       isRecording = true;
       console.log("Recording started successfully");
+      resolve();
     } catch (error) {
+      isRecording = false;
       reject(error);
     }
   });
@@ -58,7 +63,10 @@ export const stopRecording = () => {
     if (recognition && isRecording) {
       recognition.stop();
       isRecording = false;
-      resolve(currentTranscription);
+      // Small delay to ensure final results are processed
+      setTimeout(() => {
+        resolve(currentTranscription);
+      }, 100);
     } else {
       resolve('');
     }

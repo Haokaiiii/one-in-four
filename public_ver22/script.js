@@ -35,9 +35,9 @@ const puzzles = [
   },
   {
     setup:
-      "A man walks into a bar and asks the bartender for a glass of water. The bartender pulls out a gun and points it at the man. The man says, “Thank you” and walks out.",
+      "A man walks into a bar and asks the bartender for a glass of water. The bartender pulls out a gun and points it at the man. The man says, 'Thank you' and walks out.",
     solution:
-      "The man had hiccups and the gun scared hiccups out of him, to which the man said, “Thank you.” to the bartender",
+      "The man had hiccups and the gun scared hiccups out of him, to which the man said, 'Thank you.' to the bartender",
     clue: `The bartender was not threatening the man. 
       The bartender did not shoot the man. 
       The man was not thirsty. 
@@ -109,7 +109,7 @@ const promptCorrect = (setup, solution, clue, allGuess) =>
 
   Please do the following things in a few sentence:
   1. Congratulate the player for guessing correctly.
-  2. Mention some of the player’s past guesses. 
+  2. Mention some of the player's past guesses. 
   3. Explain how, based on those past guesses, they came up with the correct answer. 
 `;
 
@@ -187,54 +187,36 @@ function startingConversation(term) {
   }, 13000);
 }
 
-let transcriptionText = "press . to input your voice";
+let transcriptionText = "";
+let isFetchingTranscription = false;
 
 export const updateTranscriptionText = (newTranscription) => {
   transcriptionText = newTranscription;
-};
-
-inputButton.addEventListener("click", async () => {
-  const transcription = await fetchLatestTranscription();
-  if (transcription) {
-    updateTranscriptionText(transcription);
-    if (window.term) {
-      window.term.set_prompt(`> ${transcriptionText}`);
-    }
-  } else {
-    console.error("No transcription data available.");
-  }
-});
-
-const audoTranscriptionUpdate = async () => {
-  const transcription = await fetchLatestTranscription();
-  if (transcription) {
-    updateTranscriptionText(transcription);
-    if (window.term) {
-      window.term.set_prompt(`> ${transcriptionText}`);
-    }
+  if (window.term) {
+    window.term.set_prompt('> ');
   }
 };
-
-setInterval(audoTranscriptionUpdate, 500);
-
-// ---------- TERMINAL ---------- //
-// ---------- TERMINAL ---------- //
-// ---------- TERMINAL ---------- //
-// ---------- TERMINAL ---------- //
-// ---------- TERMINAL ---------- //
 
 document.fonts.ready.then(() => {
   const term = $("#commandDiv").terminal(
     {
       start: async function () {
-        // this.echo("");
+        this.echo("To speak, press and hold the '.' key");
+        this.echo("Release the key to finish recording");
+        this.echo("Press Enter to send your message");
+        this.echo("\n");
         loadPuzzle.call(this);
       },
     },
     {
-      greetings: `Welcome!,
-This is a terminal where you can play a lateral thinking puzzle with an AI.
-`,
+      greetings: `Welcome!,\nThis is a terminal where you can play a lateral thinking puzzle with an AI.\n`,
+      prompt: '> ',
+      keymap: {
+        ".": function(e) {
+          e.preventDefault();
+          return false;
+        }
+      }
     }
   );
 
@@ -267,15 +249,12 @@ async function playPuzzle(puzzle) {
     const userInput = await new Promise((resolve) => {
       terminal.push(
         function (input) {
-          // Check if transcriptionText is set
-          if (transcriptionText) {
-            input = transcriptionText; // Override with transcription text
-            transcriptionText = null; // Reset transcription for next input
+          if (input && input.trim()) {
+            resolve(input);
           }
-          resolve(input);
         },
         {
-          prompt: `> ${transcriptionText}`,
+          prompt: '> '
         }
       );
     });

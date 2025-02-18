@@ -3,107 +3,71 @@
 // post request + direct link to html functions
 
 import { initSpeechRecognition, startRecording, stopRecording } from './mic.js';
-import { fetchLatestTranscription, updateTranscriptionText } from './script.js';
-
-const recordingIndicator = document.getElementById("recordingIndicator");
-const inputButton = document.getElementById("inputButton");
-const nodeStatusIndicator = document.getElementById("nodeStatusIndicator");
-const phone = document.getElementById("phoneAudio");
-
-function playPhoneSound() {
-  if (phone) {
-    phone.loop = true;
-    phone.play().catch(error => {
-      console.error("Error playing sound:", error);
-    });
-    console.log("playing sound");
-  } else {
-    console.error("Phone audio element not found");
-  }
-}
-
-function stopPhoneSound() {
-  if (phone) {
-    phone.pause();
-    phone.currentTime = 0;
-    console.log("stop playing sound");
-  } else {
-    console.error("Phone audio element not found");
-  }
-}
+import { updateTranscriptionText } from './script.js';
 
 let isKeyPressed = false;
+let isRecordingActive = false;
+let recordingTimeout = null;
+
+const recordingIndicator = document.getElementById("recordingIndicator");
+const phoneAudio = document.getElementById("phoneAudio");
 
 const isRecording = () => {
-  recordingIndicator.textContent = "Recording...";
-  recordingIndicator.style.color = "red";
+  recordingIndicator.textContent = "Recording... (Release '.' to stop)";
+  recordingIndicator.style.color = 'red';
+  recordingIndicator.style.fontWeight = 'bold';
 };
 
 const notRecording = () => {
-  recordingIndicator.textContent = "Not Recording";
-  recordingIndicator.style.color = "white";
+  recordingIndicator.textContent = "Press and hold '.' to record";
+  recordingIndicator.style.color = 'black';
+  recordingIndicator.style.fontWeight = 'normal';
 };
 
-const updateNodeStatus = async () => {
-  try {
-    const response = await fetch("/status");
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
-    }
-    const data = await response.json();
-    nodeStatusIndicator.textContent = data.status || "idle";
-  } catch (error) {
-    console.error("Error fetching node status:", error);
-    nodeStatusIndicator.textContent = "error";
-  }
+const stopPhoneSound = () => {
+  phoneAudio.pause();
+  phoneAudio.currentTime = 0;
 };
 
+const playPhoneSound = () => {
+  phoneAudio.play();
+};
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (!initSpeechRecognition()) {
-    alert('Speech recognition is not supported in your browser. Please use Chrome.');
-  }
-});
+// Call notRecording initially to set the default state
+notRecording();
 
 window.addEventListener("keydown", async (e) => {
-  if (e.code === "Period" && !isKeyPressed) {
-    try {
-      e.preventDefault();
+  if (e.code === "Period") {
+    e.preventDefault();
+    
+    if (!isRecordingActive && !isKeyPressed) {
+      // Start recording when key is first pressed
       isKeyPressed = true;
+      isRecordingActive = true;
       isRecording();
       stopPhoneSound();
       await startRecording();
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      notRecording();
     }
   }
 });
 
 window.addEventListener("keyup", async (e) => {
-  if (e.code === "Period" && isKeyPressed) {
-    try {
-      e.preventDefault();
-      isKeyPressed = false;
+  if (e.code === "Period") {
+    isKeyPressed = false;
+    
+    if (isRecordingActive) {
+      // Stop recording when key is released
       const transcription = await stopRecording();
-      if (transcription) {
-        console.log("Received transcription:", transcription);
-        updateTranscriptionText(transcription);
+      isRecordingActive = false;
+      
+      if (transcription && transcription.trim()) {
+        console.log("Final transcription:", transcription);
         if (window.term) {
-          window.term.set_prompt(`> ${transcription}`);
+          window.term.set_command(transcription);
         }
       }
       notRecording();
       playPhoneSound();
-    } catch (error) {
-      console.error("Error stopping recording:", error);
-      notRecording();
     }
   }
 });
-
-// document.getElementById("inputButton").addEventListener("click", () => {
-//   fetchLatestTranscription();
-// });
-
-setInterval(updateNodeStatus, 500);
