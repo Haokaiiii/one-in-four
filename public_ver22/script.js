@@ -122,6 +122,11 @@ let allUserGuesses = [];
 
 let consecutiveNonYesCount = 0;  // Track consecutive "No" or "Not related" responses
 
+let isRecordingActive = false;
+
+// Import the recording functions at the top of the file
+import { initSpeechRecognition, startRecording, stopRecording } from './mic.js';
+
 const loadPuzzle = function () {
   if (currentPuzzleIndex >= puzzles.length) {
     this.echo("");
@@ -203,9 +208,8 @@ document.fonts.ready.then(() => {
   const term = $("#commandDiv").terminal(
     {
       start: async function () {
-        this.echo("To speak, press and hold the '.' key");
-        this.echo("Release the key to finish recording");
-        this.echo("Press Enter to send your message");
+        this.echo("To speak, press '.' to start recording");
+        this.echo("Press '.' again to stop and send");
         this.echo("\n");
         loadPuzzle.call(this);
       },
@@ -213,9 +217,26 @@ document.fonts.ready.then(() => {
     {
       greetings: `Welcome!,\nThis is a terminal where you can play a lateral thinking puzzle with an AI.\n`,
       prompt: '> ',
-      keymap: {
-        ".": function(e) {
+      promptLength: 5,
+      keydown: function(e) {
+        if (e.key === '.') {
           e.preventDefault();
+          if (!isRecordingActive) {
+            isRecordingActive = true;
+            startRecording();
+            this.set_prompt('🎤 Recording... > ', 15);  // Longer prompt with clear indicator
+            this.echo('\nRecording started...');  // Visual feedback
+          } else {
+            isRecordingActive = false;
+            stopRecording().then(transcription => {
+              if (transcription && transcription.trim()) {
+                this.set_prompt('> ', 5);
+                this.echo('\nRecording stopped.');  // Visual feedback
+                this.set_command(transcription);
+                this.exec(transcription);
+              }
+            });
+          }
           return false;
         }
       }
