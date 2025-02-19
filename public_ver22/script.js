@@ -302,6 +302,46 @@ async function playPuzzle(puzzle) {
   }
 }
 
+const getAIResponse = async (input, setup, solution, clue) => {
+  try {
+    const prompt = `
+      Context: This is a lateral thinking puzzle with the following setup:
+      "${setup}"
+      
+      The player's input was: "${input}"
+      
+      The solution is: "${solution}"
+      
+      Additional clue: "${clue}"
+      
+      Provide a helpful response that:
+      1. Doesn't reveal the solution directly
+      2. Guides the player if they're on the wrong track
+      3. Acknowledges if they're getting closer to the solution
+      4. Is concise and clear
+      
+      Response:`;
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.response;
+  } catch (error) {
+    console.error("Error in getAIResponse:", error);
+    return "I'm having trouble processing that. Please try again.";
+  }
+};
+
 const requestAI = async (input, setup, solution, clue, keyword) => {
   try {
     console.log("--requestAI started --input:", input);

@@ -13,6 +13,7 @@ import {
   setCurrentStatus,
 } from "./gloVariable.js";
 import * as index from "../index.js";
+import OpenAI from 'openai';
 
 Object.assign(globalThis, index);
 
@@ -25,6 +26,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const audioFolderPath = join(__dirname, '../public_ver22/audio');
+
+// Initialize OpenAI with new syntax
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -111,7 +117,32 @@ export const startServer = () => {
     }
   });
 
-  app.listen(port, () => {
+  // Update the chat endpoint with new OpenAI syntax
+  app.post('/api/chat', async (req, res) => {
+    try {
+      const { prompt } = req.body;
+      
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { role: "system", content: "You are a helpful assistant for a lateral thinking puzzle game." },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 150,
+        temperature: 0.7,
+      });
+
+      const response = completion.choices[0].message.content;
+      res.json({ response });
+    } catch (error) {
+      console.error('Error in chat endpoint:', error);
+      res.status(500).json({ error: 'Failed to get AI response' });
+    }
+  });
+
+  const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
   });
+
+  return server;
 };
