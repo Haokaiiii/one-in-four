@@ -221,17 +221,23 @@ document.fonts.ready.then(() => {
       keydown: function(e) {
         if (e.key === '.') {
           e.preventDefault();
+          const recordingIndicator = document.getElementById("recordingIndicator");
+          
           if (!isRecordingActive) {
             isRecordingActive = true;
             startRecording();
-            this.set_prompt('🎤 Recording... > ', 15);  // Longer prompt with clear indicator
-            this.echo('\nRecording started...');  // Visual feedback
+            this.set_prompt('🎤 Recording... > ', 15);
+            recordingIndicator.textContent = "Recording... Press '.' to stop";
+            recordingIndicator.style.color = 'red';
+            recordingIndicator.style.fontWeight = 'bold';
           } else {
             isRecordingActive = false;
             stopRecording().then(transcription => {
               if (transcription && transcription.trim()) {
                 this.set_prompt('> ', 5);
-                this.echo('\nRecording stopped.');  // Visual feedback
+                recordingIndicator.textContent = "Press '.' to record";
+                recordingIndicator.style.color = 'black';
+                recordingIndicator.style.fontWeight = 'normal';
                 this.set_command(transcription);
                 this.exec(transcription);
               }
