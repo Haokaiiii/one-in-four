@@ -120,7 +120,7 @@ let currentPuzzleIndex = 0;
 
 let allUserGuesses = [];
 
-let consecutiveNoCount = 0;
+let consecutiveNonYesCount = 0;  // Track consecutive "No" or "Not related" responses
 
 const loadPuzzle = function () {
   if (currentPuzzleIndex >= puzzles.length) {
@@ -239,15 +239,15 @@ document.fonts.ready.then(() => {
 
 async function playPuzzle(puzzle) {
   try {
-    // this.echo("");
     this.echo(puzzle.setup);
     this.echo("");
     this.echo(`Ask any question related to the scenario`);
     this.echo("");
 
     const terminal = this;
+    let allUserGuesses = [];
+    let correctAnswerCount = 0;  // Add counter for correct answers
 
-    // Main player QA loop
     while (true) {
       const userInput = await new Promise((resolve) => {
         terminal.push(
@@ -271,36 +271,56 @@ async function playPuzzle(puzzle) {
         puzzle.keyword
       );
 
-      terminal.echo(`\nAI Response
-    ${aiResponse}
-      `);
+      terminal.echo(`\nAI Response\n    ${aiResponse}\n`);
 
-      // console.log(`--aiResponse.includes(correct): ${aiResponse.toLowerCase().includes("correct")}`) //correct detection
-
-      if (aiResponse.toLowerCase().includes("correct")) {
-        const resultResponse = await requestAIResult(
-          puzzle.setup,
-          puzzle.solution,
-          puzzle.clue,
-          allUserGuesses
-        );
-
-        terminal.echo(`\nAI Response
-      ${resultResponse}
-        `);
-
-        try {
-          await postTextToSpeech(resultResponse);
-        } catch (error) {
-          console.warn("Voice feedback unavailable");
-        }
+      if (aiResponse === "Yes") {
+        correctAnswerCount++;
         
-        break; // Exit the game loop
+        if (correctAnswerCount === 1) {  // After first "Yes"
+          const resultResponse = await requestAIResult(
+            puzzle.setup,
+            puzzle.solution,
+            puzzle.clue,
+            allUserGuesses
+          );
+
+          terminal.echo(`\nCongratulations! 🎉\n${resultResponse}\n`);
+          
+          try {
+            await postTextToSpeech(resultResponse);
+          } catch (error) {
+            console.warn("Voice feedback unavailable");
+          }
+          
+          // Ask if they want to play another puzzle
+          terminal.echo("\nWould you like to play another puzzle? (yes/no)");
+          const playAgain = await new Promise((resolve) => {
+            terminal.push(
+              function (input) {
+                resolve(input.toLowerCase().trim());
+              },
+              {
+                prompt: '> '
+              }
+            );
+          });
+
+          if (playAgain === 'yes') {
+            terminal.pop();
+            terminal.echo("\nStarting new puzzle...\n");
+            loadPuzzle.call(terminal);
+            return;
+          } else {
+            terminal.echo("\nThanks for playing!");
+            terminal.pop();
+            return;
+          }
+        }
       }
     }
   } catch (error) {
     console.error("Error in puzzle game:", error);
-    terminal.echo("\nAn error occurred. Please try again.");
+    this.echo("\nAn error occurred. Please try again.");
   }
 }
 
@@ -344,19 +364,32 @@ const getAIResponse = async (input, setup, solution, clue) => {
   }
 };
 
-const requestAI = async (input, setup, solution, clue, keyword) => {
+const getAIHint = async (input, setup, solution, clue) => {
   try {
-    console.log("--requestAI started --input:", input);
-    
+    // First try to get a hint from the clue array
+    const clueArray = clue.split('\n').map(c => c.trim()).filter(c => c);
+    if (clueArray.length > 0) {
+      // Get a random clue from the array
+      const randomClue = clueArray[Math.floor(Math.random() * clueArray.length)];
+      return `Hint: ${randomClue}`;
+    }
+
+    // Fallback to AI hint if no clues available
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ 
-        prompt: input, 
-        solution: solution,
-        consecutiveNoCount 
+      body: JSON.stringify({
+        prompt: `
+          Context: This is a lateral thinking puzzle.
+          Setup: ${setup}
+          Player's guess: ${input}
+          Solution: ${solution}
+          Available clues: ${clue}
+          
+          Provide a helpful hint that guides the player without revealing the solution directly.
+        `
       }),
     });
 
@@ -365,20 +398,73 @@ const requestAI = async (input, setup, solution, clue, keyword) => {
     }
 
     const data = await response.json();
+    return `Hint: ${data.response}`;
+  } catch (error) {
+    console.error("Error getting hint:", error);
+    // Return a generic hint from the clue if available
+    const clueArray = clue.split('\n').map(c => c.trim()).filter(c => c);
+    if (clueArray.length > 0) {
+      return `Hint: ${clueArray[0]}`;
+    }
+    return "No";  // Fallback response if everything fails
+  }
+};
+
+const requestAI = async (input, setup, solution, clue, keyword) => {
+  try {
+    console.log("--requestAI started --input:", input);
     
-    if (data.response === "No" || data.response === "Not related") {
-      consecutiveNoCount++;
-    } else if (data.response === "Yes") {
-      consecutiveNoCount = 0;
+    // Normalize input and solution for comparison
+    const normalizedInput = input.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    const normalizedSolution = solution.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    
+    // Calculate similarity
+    const inputWords = new Set(normalizedInput.split(' '));
+    const solutionWords = new Set(normalizedSolution.split(' '));
+    
+    let matchCount = 0;
+    solutionWords.forEach(word => {
+      if (inputWords.has(word)) matchCount++;
+    });
+    
+    const similarityScore = matchCount / solutionWords.size;
+    
+    let response;
+    if (similarityScore > 0.7) {
+      response = "Yes";
+      consecutiveNonYesCount = 0;  // Reset counter on correct answer
+    } else if (!isRelevantQuestion(input, setup, solution)) {
+      response = "Not related";
+      consecutiveNonYesCount++;
+    } else {
+      response = "No";
+      consecutiveNonYesCount++;
     }
 
     console.log("--AI response OK");
-    console.log("==AI Output:", data.response);
-    return data.response;
+    console.log("==AI Output:", response);
+    console.log("==Consecutive non-yes count:", consecutiveNonYesCount);
+
+    // Check consecutive count AFTER incrementing
+    if (consecutiveNonYesCount >= 3) {
+      const hint = await getAIHint(input, setup, solution, clue);
+      consecutiveNonYesCount = 0;  // Reset counter after giving hint
+      return hint;
+    }
+    
+    return response;
   } catch (error) {
     console.error("Error in requestAI:", error);
     return "Sorry, there was an error processing your response.";
   }
+};
+
+const isRelevantQuestion = (input, setup, solution) => {
+  // Simple relevance check based on keywords from setup and solution
+  const keywords = [...setup.toLowerCase().split(' '), 
+                   ...solution.toLowerCase().split(' ')];
+  const inputWords = input.toLowerCase().split(' ');
+  return keywords.some(keyword => inputWords.includes(keyword));
 };
 
 async function requestAIResult(setup, solution, clue, allGuess) {

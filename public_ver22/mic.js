@@ -4,7 +4,7 @@ let currentTranscription = '';
 
 export const initSpeechRecognition = () => {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    console.error('Speech recognition not supported in this browser');
+    console.error('Speech recognition not supported');
     return false;
   }
   
@@ -14,6 +14,18 @@ export const initSpeechRecognition = () => {
   recognition.interimResults = true;
   recognition.lang = 'en-US';
   
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join(' ');
+    console.log("Interim transcription:", transcript);
+    currentTranscription = transcript;
+    
+    if (window.term) {
+      window.term.set_command(transcript);
+    }
+  };
+
   return true;
 };
 
@@ -26,18 +38,17 @@ export const startRecording = () => {
       }
     }
 
-    currentTranscription = '';
+    if (isRecording) {
+      console.log("Recognition already active, stopping first");
+      recognition.stop();
+    }
 
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map(result => result[0].transcript)
-        .join(' ');
-      console.log("Interim transcription:", transcript);
-      currentTranscription = transcript;
-      
-      if (window.term) {
-        window.term.set_command(transcript);
-      }
+    currentTranscription = '';
+    
+    recognition.onstart = () => {
+      isRecording = true;
+      console.log("Recording started successfully");
+      resolve();
     };
 
     recognition.onerror = (event) => {
@@ -48,10 +59,8 @@ export const startRecording = () => {
 
     try {
       recognition.start();
-      isRecording = true;
-      console.log("Recording started successfully");
-      resolve();
     } catch (error) {
+      console.error("Error starting recognition:", error);
       isRecording = false;
       reject(error);
     }
@@ -61,12 +70,13 @@ export const startRecording = () => {
 export const stopRecording = () => {
   return new Promise((resolve) => {
     if (recognition && isRecording) {
-      recognition.stop();
-      isRecording = false;
-      // Small delay to ensure final results are processed
-      setTimeout(() => {
+      recognition.onend = () => {
+        isRecording = false;
+        console.log("Recording stopped with transcription:", currentTranscription);
         resolve(currentTranscription);
-      }, 100);
+      };
+      
+      recognition.stop();
     } else {
       resolve('');
     }
