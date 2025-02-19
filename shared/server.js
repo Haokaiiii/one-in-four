@@ -117,22 +117,50 @@ export const startServer = () => {
     }
   });
 
-  // Update the chat endpoint with new OpenAI syntax
+  // Add this function before the app.post('/api/chat') route
+  const calculateSimilarity = (input, solution) => {
+    // Convert both input and solution to lowercase and remove punctuation
+    const normalizedInput = input.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    const normalizedSolution = solution.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    
+    // Split into words and check for key terms
+    const inputWords = new Set(normalizedInput.split(' '));
+    const solutionWords = new Set(normalizedSolution.split(' '));
+    
+    // Calculate similarity score
+    let matchCount = 0;
+    solutionWords.forEach(word => {
+      if (inputWords.has(word)) matchCount++;
+    });
+    
+    return matchCount / solutionWords.size;
+  };
+
+  // Update the chat endpoint to receive solution
   app.post('/api/chat', async (req, res) => {
     try {
-      const { prompt } = req.body;
-      
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          { role: "system", content: "You are a helpful assistant for a lateral thinking puzzle game." },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 150,
-        temperature: 0.7,
-      });
+      const { prompt, solution, consecutiveNoCount } = req.body;
+      let response;
 
-      const response = completion.choices[0].message.content;
+      const similarityScore = calculateSimilarity(prompt, solution);
+      
+      if (similarityScore > 0.7) {
+        response = "Yes";
+      } else if (consecutiveNoCount >= 2) {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "You are a helpful assistant for a lateral thinking puzzle game. Provide a brief hint without revealing the solution." },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.7,
+        });
+        response = completion.choices[0].message.content;
+      } else {
+        response = "No";
+      }
+
       res.json({ response });
     } catch (error) {
       console.error('Error in chat endpoint:', error);

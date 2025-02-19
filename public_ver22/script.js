@@ -120,6 +120,8 @@ let currentPuzzleIndex = 0;
 
 let allUserGuesses = [];
 
+let consecutiveNoCount = 0;
+
 const loadPuzzle = function () {
   if (currentPuzzleIndex >= puzzles.length) {
     this.echo("");
@@ -346,34 +348,33 @@ const requestAI = async (input, setup, solution, clue, keyword) => {
   try {
     console.log("--requestAI started --input:", input);
     
-    // Convert both input and solution to lowercase and remove punctuation
-    const normalizedInput = input.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
-    const normalizedSolution = solution.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
-    
-    // Split into words and check for key terms
-    const inputWords = new Set(normalizedInput.split(' '));
-    const solutionWords = new Set(normalizedSolution.split(' '));
-    
-    // Calculate similarity score
-    let matchCount = 0;
-    solutionWords.forEach(word => {
-      if (inputWords.has(word)) matchCount++;
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        prompt: input, 
+        solution: solution,
+        consecutiveNoCount 
+      }),
     });
-    
-    const similarityScore = matchCount / solutionWords.size;
-    const isCorrect = similarityScore > 0.7; // Adjust threshold as needed
-    
-    // Construct response based on similarity
-    let response;
-    if (isCorrect) {
-      response = "That's correct.";
-    } else {
-      response = await getAIResponse(input, setup, solution, clue);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
     }
+
+    const data = await response.json();
     
+    if (data.response === "No" || data.response === "Not related") {
+      consecutiveNoCount++;
+    } else if (data.response === "Yes") {
+      consecutiveNoCount = 0;
+    }
+
     console.log("--AI response OK");
-    console.log("==AI Output:", response);
-    return response;
+    console.log("==AI Output:", data.response);
+    return data.response;
   } catch (error) {
     console.error("Error in requestAI:", error);
     return "Sorry, there was an error processing your response.";
