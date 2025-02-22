@@ -103,8 +103,6 @@ export const startServer = () => {
       const audioFileName = await convertTextToSpeech(text, voiceId);
       const audioFilePath = path.join(audioFolderPath, audioFileName);
 
-      await playAudio(audioFolderPath, audioFileName);
-
       res.json({ audioFilePath });
     } catch (error) {
       console.error("Error in /text-to-speech endpoint:", error);

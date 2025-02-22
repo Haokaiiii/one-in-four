@@ -433,10 +433,11 @@ async function requestAIResult(setup, solution, clue, allGuess) {
 
 const postTextToSpeech = async (text) => {
   try {
-    // If there's already audio playing, stop it
+    // If there's already audio playing, stop and cleanup
     if (currentAudio) {
       currentAudio.pause();
-      currentAudio.currentTime = 0;
+      currentAudio.src = '';
+      currentAudio.remove();
       currentAudio = null;
     }
 
@@ -460,18 +461,24 @@ const postTextToSpeech = async (text) => {
 
     const data = await response.json();
     if (data.audioFilePath) {
-      // create new audio
+      // Create new audio element
       currentAudio = new Audio();
       const audioFileName = data.audioFilePath.split(/[/\\]/).pop();
       const audioPath = `/audio/${audioFileName}`;
-      currentAudio.src = audioPath;
-
-      // wait for it to actually play
+      
+      // Wait for audio to be fully loaded before playing
       await new Promise((resolve, reject) => {
-        currentAudio.onended = resolve;  // Changed from onplaying to onended
-        currentAudio.onerror = () =>
-          reject(new Error(`Failed to load audio from ${audioPath}`));
-        currentAudio.play();
+        currentAudio.oncanplaythrough = resolve;
+        currentAudio.onerror = () => reject(new Error(`Failed to load audio from ${audioPath}`));
+        currentAudio.src = audioPath;
+      });
+
+      // Play the audio
+      await currentAudio.play();
+      
+      // Wait for playback to complete
+      await new Promise(resolve => {
+        currentAudio.onended = resolve;
       });
     }
   } catch (error) {
