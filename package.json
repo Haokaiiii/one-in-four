@@ -19,7 +19,7 @@
     "dotenv": "^16.3.1",
     "elevenlabs": "^0.16.1",
     "elevenlabs-node": "^1.2.0",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "mic": "^2.1.2",
     "node-fetch": "^3.3.2",
