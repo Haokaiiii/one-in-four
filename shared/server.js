@@ -14,6 +14,8 @@ import {
 } from "./gloVariable.js";
 import * as index from "../index.js";
 import OpenAI from 'openai';
+import fs from 'fs';
+import { mkdir } from 'fs/promises';
 
 Object.assign(globalThis, index);
 
@@ -36,6 +38,19 @@ const app = express();
 const port = process.env.PORT || 5001;
 
 let transcriptionArchives = [];
+
+// Add this before app initialization
+const ensureAudioDirectory = async () => {
+    try {
+        await mkdir(audioFolderPath, { recursive: true });
+        console.log('Audio directory ensured at:', audioFolderPath);
+    } catch (error) {
+        console.error('Error creating audio directory:', error);
+    }
+};
+
+// Add this to startServer function, before app.use statements
+await ensureAudioDirectory();
 
 app.use(cors());
 app.use(express.json());
@@ -87,7 +102,9 @@ export const startServer = () => {
     try {
       const audioFileName = await convertTextToSpeech(text, voiceId);
       const audioFilePath = path.join(audioFolderPath, audioFileName);
-      
+
+      await playAudio(audioFolderPath, audioFileName);
+
       res.json({ audioFilePath });
     } catch (error) {
       console.error("Error in /text-to-speech endpoint:", error);
