@@ -253,23 +253,56 @@ const loadPuzzle = function () {
     .then(() => {
       // after puzzle is solved, ask user if they want next
       this.echo("");
-      this.push(
-        function (command) {
-          if (command.match(/yes|y/i)) {
-            currentPuzzleIndex++;
-            this.pop();
-            loadPuzzle.call(this);
-          } else if (command.match(/no|n/i)) {
-            this.echo(endMessage);
-            this.pop();
-          } else {
-            this.echo("Please enter yes or no.(y/n)");
-          }
-        },
-        {
-          prompt: "Do you want to continue with the next question? (y/n) > ",
+      this.echo("Do you want to continue with the next question? (Please say yes or no)");
+      
+      // Enable recording mode for the response
+      isRecordingActive = true;
+      startRecording();
+      this.set_prompt('🎤 Recording... > ', 15);
+      
+      const recordingIndicator = document.getElementById("recordingIndicator");
+      if (recordingIndicator) {
+        recordingIndicator.textContent = "Recording... Press '.' to stop";
+        recordingIndicator.style.color = 'red';
+        recordingIndicator.style.fontWeight = 'bold';
+      }
+
+      // Handle the voice response
+      const handleVoiceResponse = async (transcription) => {
+        const response = transcription.toLowerCase().trim();
+        if (response.match(/yes|yeah|yep|sure|okay/i)) {
+          currentPuzzleIndex++;
+          loadPuzzle.call(this);
+        } else if (response.match(/no|nope|nah/i)) {
+          this.echo(endMessage);
+        } else {
+          this.echo("Please say yes or no");
+          // Re-enable recording for another try
+          isRecordingActive = true;
+          startRecording();
         }
-      );
+      };
+
+      // Update the keydown handler to use handleVoiceResponse
+      const originalKeydown = this.settings().keydown;
+      this.settings().keydown = function(e) {
+        if (e.key === '.' && isRecordingActive) {
+          e.preventDefault();
+          isRecordingActive = false;
+          stopRecording().then(transcription => {
+            this.set_prompt('> ', 5);
+            if (recordingIndicator) {
+              recordingIndicator.textContent = "Press '.' to record";
+              recordingIndicator.style.color = 'black';
+              recordingIndicator.style.fontWeight = 'normal';
+            }
+            
+            if (transcription && transcription.trim()) {
+              handleVoiceResponse(transcription);
+            }
+          });
+        }
+      }.bind(this);
     });
 };
 
